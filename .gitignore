@@ -1,0 +1,6 @@
+
+.env
+.env.*
+!.env.example
+reservas.json
+__pycache__/

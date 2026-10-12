@@ -1,0 +1,7 @@
+[theme]
+primaryColor = "#E6C653"          # Dorado refinado (menos chillón)
+backgroundColor = "#0D1B2A"       # Azul Marino Profundo premium
+secondaryBackgroundColor = "#1B263B" # Azul de contraste para tarjetas y formularios
+textColor = "#E0E1DD"             # Blanco roto/plateado de alta legibilidad
+font = "sans serif"
+
