@@ -15,9 +15,9 @@ DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION", "")
 
 AULAS_RECURSOS = [
-    "Notebooks", "Equipo de Sonido Grande", "Equipo de Sonido Chico",
+    "Notebooks", "Equipo de Sonido Grande", "Parlante Chico",
     "Laboratorio", "Salón de Usos Múltiples (SUM)",
-    "Proyector Móvil A", "Biblioteca", "Tablets"
+    "Proyector Móvil A", "Sala de Informatica", "Tablets"
 ]
 
 TURNOS = [
@@ -92,7 +92,7 @@ def eliminar_reserva(reserva_id):
                 return cur.rowcount == 1
 
 
-st.set_page_config(page_title="Gestión de Espacios - IIC", page_icon="🏫", layout="centered")
+st.set_page_config(page_title="Reserva de Recursos - IIC", page_icon="🏫", layout="centered")
 
 st.markdown("""
     <div style='text-align: center; padding: 10px; border-bottom: 2px solid #E6C653; margin-bottom: 25px;'>
