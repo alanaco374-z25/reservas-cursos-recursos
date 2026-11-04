@@ -1,8 +1,11 @@
 import json
 import os
-from datetime import datetime
+import smtplib
 import urllib.request
 from contextlib import closing
+from datetime import datetime
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 import pandas as pd
 import psycopg2
@@ -15,7 +18,8 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION", "")
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+EMAIL_SERVIDOR = os.getenv("EMAIL_SERVIDOR", "").strip()
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "").strip()
 
 AULAS_RECURSOS = [
     "Notebooks",
@@ -49,12 +53,14 @@ def conectar_db():
 
 
 def enviar_correo_confirmacion(destinatario, reserva):
-    print(f"--- INICIANDO ENVÍO DE CORREO ---")
+    print("--- INICIANDO ENVÍO DE CORREO (SMTP GMAIL) ---")
     print(f"Destinatario: {destinatario}")
-    print(f"API Key presente: {bool(RESEND_API_KEY)} (Largo: {len(RESEND_API_KEY)})")
     
-    if not RESEND_API_KEY or not destinatario:
-        print("ERROR: Falta API Key o destinatario.")
+    if not EMAIL_SERVIDOR or not EMAIL_PASSWORD:
+        print("ERROR: Faltan las credenciales de correo (EMAIL_SERVIDOR o EMAIL_PASSWORD).")
+        return False
+    if not destinatario:
+        print("ERROR: No se proporcionó correo de destinatario.")
         return False
 
     html_contenido = f"""
@@ -74,35 +80,23 @@ def enviar_correo_confirmacion(destinatario, reserva):
     </div>
     """
 
-    payload = {
-        "from": "onboarding@resend.dev",
-        "to": [destinatario],
-        "subject": f"Reserva Confirmada: {reserva['recurso']} ({reserva['fecha']})",
-        "html": html_contenido,
-    }
+    mensaje = MIMEMultipart("alternative")
+    mensaje["Subject"] = f"Reserva Confirmada: {reserva['recurso']} ({reserva['fecha']})"
+    mensaje["From"] = f"Sistema de Reservas IIC <{EMAIL_SERVIDOR}>"
+    mensaje["To"] = destinatario
 
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    mensaje.attach(MIMEText(html_contenido, "html"))
 
     try:
-        with urllib.request.urlopen(req) as response:
-            res_body = response.read().decode("utf-8")
-            print(f"ÉXITO RESEND ({response.status}): {res_body}")
-            return response.status == 200
-    except urllib.error.HTTPError as e:
-        error_res = e.read().decode("utf-8")
-        print(f"ERROR HTTP RESEND ({e.code}): {error_res}")
-        return False
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as servidor:
+            servidor.login(EMAIL_SERVIDOR, EMAIL_PASSWORD)
+            servidor.sendmail(EMAIL_SERVIDOR, destinatario, mensaje.as_string())
+        print(f"ÉXITO SMTP: Correo enviado correctamente a {destinatario}")
+        return True
     except Exception as e:
-        print(f"EXCEPCIÓN GENERAL AL ENVIAR CORREO: {e}")
+        print(f"ERROR SMTP GENERAL: {e}")
         return False
+
 
 def cargar_reservas():
     consulta = """
