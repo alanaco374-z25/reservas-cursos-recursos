@@ -49,7 +49,15 @@ def conectar_db():
 
 
 def enviar_correo_confirmacion(destinatario, reserva):
-    if not RESEND_API_KEY or not destinatario:
+    print(f"--- INICIANDO ENVÍO DE CORREO ---")
+    print(f"Destinatario: {destinatario}")
+    print(f"API Key presente: {bool(RESEND_API_KEY)} (Largo: {len(RESEND_API_KEY)})")
+    
+    if not RESEND_API_KEY:
+        print("ERROR: RESEND_API_KEY está vacía o no existe en el entorno.")
+        return False
+    if not destinatario:
+        print("ERROR: No se proporcionó correo de destinatario.")
         return False
 
     html_contenido = f"""
@@ -88,9 +96,15 @@ def enviar_correo_confirmacion(destinatario, reserva):
 
     try:
         with urllib.request.urlopen(req) as response:
+            res_body = response.read().decode("utf-8")
+            print(f"ÉXITO RESEND ({response.status}): {res_body}")
             return response.status == 200
+    except urllib.error.HTTPError as e:
+        error_res = e.read().decode("utf-8")
+        print(f"ERROR HTTP RESEND ({e.code}): {error_res}")
+        return False
     except Exception as e:
-        print(f"Error al enviar correo: {e}")
+        print(f"EXCEPCIÓN GENERAL AL ENVIAR CORREO: {e}")
         return False
 
 
