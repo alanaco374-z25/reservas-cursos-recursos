@@ -128,7 +128,7 @@ def guardar_reserva(reserva):
                         consulta,
                         (
                             reserva["profesor"],
-                            reserva.get("email", ""),
+                            reserva["email"],
                             reserva["fecha"],
                             reserva["recurso"],
                             reserva["turno"],
@@ -259,7 +259,7 @@ with tab_nueva:
                         f"❌ **Conflicto de reserva:** El espacio ya fue asignado al/la Prof. {ocupante} para este día y horario."
                     )
                 else:
-                    enviar_correo_confirmacion(email_profesor, guardada)
+                    enviar_correo_confirmacion(email_profesor.strip().lower(), guardada)
                     st.session_state["reserva_confirmada"] = guardada
                     st.rerun()
             except Exception as error:
