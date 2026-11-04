@@ -75,7 +75,7 @@ def enviar_correo_confirmacion(destinatario, reserva):
     """
 
     payload = {
-        "from": "Sistema de Reservas <onboarding@resend.dev>",
+        "from": "Acme <onboarding@resend.dev>",
         "to": [destinatario],
         "subject": f"Reserva Confirmada: {reserva['recurso']} ({reserva['fecha']})",
         "html": html_contenido,
