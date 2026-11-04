@@ -53,11 +53,8 @@ def enviar_correo_confirmacion(destinatario, reserva):
     print(f"Destinatario: {destinatario}")
     print(f"API Key presente: {bool(RESEND_API_KEY)} (Largo: {len(RESEND_API_KEY)})")
     
-    if not RESEND_API_KEY:
-        print("ERROR: RESEND_API_KEY está vacía o no existe en el entorno.")
-        return False
-    if not destinatario:
-        print("ERROR: No se proporcionó correo de destinatario.")
+    if not RESEND_API_KEY or not destinatario:
+        print("ERROR: Falta API Key o destinatario.")
         return False
 
     html_contenido = f"""
