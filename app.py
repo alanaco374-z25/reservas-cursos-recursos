@@ -1,11 +1,8 @@
 import json
 import os
-import smtplib
 import urllib.request
 from contextlib import closing
 from datetime import datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 import pandas as pd
 import psycopg2
@@ -18,8 +15,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION", "")
-EMAIL_SERVIDOR = os.getenv("EMAIL_SERVIDOR", "").strip()
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "").strip()
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
 
 AULAS_RECURSOS = [
     "Notebooks",
@@ -51,7 +47,6 @@ def conectar_db():
         raise RuntimeError("Falta configurar DATABASE_URL.")
     return psycopg2.connect(DATABASE_URL, sslmode="require", connect_timeout=10)
 
-BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
 
 def enviar_correo_confirmacion(destinatario, reserva):
     print("--- INICIANDO ENVÍO DE CORREO (API BREVO) ---")
@@ -79,7 +74,7 @@ def enviar_correo_confirmacion(destinatario, reserva):
     """
 
     payload = {
-        "sender": {"name": "Sistema de Reservas IIC", "email": "no-reply@iic.edu.ar"},
+        "sender": {"name": "Sistema de Reservas IIC", "email": "alanaco374@gmail.com"},  # Reemplaza con tu correo verificado en Brevo si es diferente
         "to": [{"email": destinatario}],
         "subject": f"Reserva Confirmada: {reserva['recurso']} ({reserva['fecha']})",
         "htmlContent": html_contenido
@@ -108,6 +103,7 @@ def enviar_correo_confirmacion(destinatario, reserva):
     except Exception as e:
         print(f"EXCEPCIÓN GENERAL AL ENVIAR CORREO: {e}")
         return False
+
 
 def cargar_reservas():
     consulta = """
