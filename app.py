@@ -88,13 +88,15 @@ def enviar_correo_confirmacion(destinatario, reserva):
     mensaje.attach(MIMEText(html_contenido, "html"))
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as servidor:
+        # Definimos un timeout de 7 segundos para que la app nunca se quede congelada
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=7) as servidor:
+            servidor.starttls()
             servidor.login(EMAIL_SERVIDOR, EMAIL_PASSWORD)
             servidor.sendmail(EMAIL_SERVIDOR, destinatario, mensaje.as_string())
         print(f"ÉXITO SMTP: Correo enviado correctamente a {destinatario}")
         return True
     except Exception as e:
-        print(f"ERROR SMTP GENERAL: {e}")
+        print(f"ERROR SMTP GENERAL (Controlado): {e}")
         return False
 
 
