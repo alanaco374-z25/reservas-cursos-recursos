@@ -75,7 +75,7 @@ def enviar_correo_confirmacion(destinatario, reserva):
     """
 
     payload = {
-        "from": "Acme <onboarding@resend.dev>",
+        "from": "onboarding@resend.dev",
         "to": [destinatario],
         "subject": f"Reserva Confirmada: {reserva['recurso']} ({reserva['fecha']})",
         "html": html_contenido,
@@ -103,7 +103,6 @@ def enviar_correo_confirmacion(destinatario, reserva):
     except Exception as e:
         print(f"EXCEPCIÓN GENERAL AL ENVIAR CORREO: {e}")
         return False
-
 
 def cargar_reservas():
     consulta = """
