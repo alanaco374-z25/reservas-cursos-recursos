@@ -51,16 +51,14 @@ def conectar_db():
         raise RuntimeError("Falta configurar DATABASE_URL.")
     return psycopg2.connect(DATABASE_URL, sslmode="require", connect_timeout=10)
 
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
 
 def enviar_correo_confirmacion(destinatario, reserva):
-    print("--- INICIANDO ENVÍO DE CORREO (SMTP GMAIL) ---")
+    print("--- INICIANDO ENVÍO DE CORREO (API BREVO) ---")
     print(f"Destinatario: {destinatario}")
     
-    if not EMAIL_SERVIDOR or not EMAIL_PASSWORD:
-        print("ERROR: Faltan las credenciales de correo (EMAIL_SERVIDOR o EMAIL_PASSWORD).")
-        return False
-    if not destinatario:
-        print("ERROR: No se proporcionó correo de destinatario.")
+    if not BREVO_API_KEY or not destinatario:
+        print("ERROR: Falta BREVO_API_KEY o destinatario.")
         return False
 
     html_contenido = f"""
@@ -80,25 +78,36 @@ def enviar_correo_confirmacion(destinatario, reserva):
     </div>
     """
 
-    mensaje = MIMEMultipart("alternative")
-    mensaje["Subject"] = f"Reserva Confirmada: {reserva['recurso']} ({reserva['fecha']})"
-    mensaje["From"] = f"Sistema de Reservas IIC <{EMAIL_SERVIDOR}>"
-    mensaje["To"] = destinatario
+    payload = {
+        "sender": {"name": "Sistema de Reservas IIC", "email": "no-reply@iic.edu.ar"},
+        "to": [{"email": destinatario}],
+        "subject": f"Reserva Confirmada: {reserva['recurso']} ({reserva['fecha']})",
+        "htmlContent": html_contenido
+    }
 
-    mensaje.attach(MIMEText(html_contenido, "html"))
+    req = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "api-key": BREVO_API_KEY,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        method="POST",
+    )
 
     try:
-        # Definimos un timeout de 7 segundos para que la app nunca se quede congelada
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=7) as servidor:
-            servidor.starttls()
-            servidor.login(EMAIL_SERVIDOR, EMAIL_PASSWORD)
-            servidor.sendmail(EMAIL_SERVIDOR, destinatario, mensaje.as_string())
-        print(f"ÉXITO SMTP: Correo enviado correctamente a {destinatario}")
-        return True
-    except Exception as e:
-        print(f"ERROR SMTP GENERAL (Controlado): {e}")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_body = response.read().decode("utf-8")
+            print(f"ÉXITO BREVO ({response.status}): {res_body}")
+            return response.status in [200, 201]
+    except urllib.error.HTTPError as e:
+        error_res = e.read().decode("utf-8")
+        print(f"ERROR HTTP BREVO ({e.code}): {error_res}")
         return False
-
+    except Exception as e:
+        print(f"EXCEPCIÓN GENERAL AL ENVIAR CORREO: {e}")
+        return False
 
 def cargar_reservas():
     consulta = """
