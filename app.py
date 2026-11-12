@@ -16,9 +16,9 @@ CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION")
 DB_FILE = "reservas.json"  
 
 AULAS_RECURSOS = [  
-    "Notebooks", "Equipo de Sonido Grande", "Equipo de Sonido Chico",  
+   "Equipo de Sonido Grande", "Equipo de Sonido Chico",  
     "Laboratorio", "Salón de Usos Múltiples (SUM)",   
-    "Proyector Móvil A", "Biblioteca", "Tablets"  
+    "Proyector Móvil A", "Proyector Móvil B", "Biblioteca", "Tablets"  
 ]  
 
 TURNOS = [  
@@ -194,7 +194,7 @@ with tab_nueva:
     
     with st.container():  
         nombre_profesor = st.text_input("Nombre y Apellido del Docente:")  
-        email_docente = st.text_input("Correo electrónico de notificación (Docente / Tutor):")
+        email_docente = st.text_input("Correo electrónico de notificación (Docente):")
         
         col1, col2 = st.columns(2)  
         with col1:  
