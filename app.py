@@ -50,21 +50,27 @@ def get_base64_image(image_path):
 # Configuración de página  
 st.set_page_config(page_title="Gestión de Espacios - IIC", page_icon="🏫", layout="centered")  
 
-# Estilos CSS personalizados para máxima elegancia y letras nítidas
+# Estilos CSS para forzar fondo claro, tipografía elegante y máxima legibilidad
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
     
-    html, body, [class*="st"] {
-        font-family: 'Plus Jakarta Sans', sans-serif;
+    /* Forzar fondo blanco y color de texto general oscuro en toda la app */
+    .stApp {
+        background-color: #f8fafc !important;
+        color: #1e293b !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
     
     .header-container {
         display: flex;
         align-items: center;
         gap: 20px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #E6C653;
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 12px;
+        border-bottom: 3px solid #E6C653;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
         margin-bottom: 25px;
     }
     
@@ -73,6 +79,21 @@ st.markdown("""
         width: auto;
         image-rendering: -webkit-optimize-contrast;
         image-rendering: crisp-edges;
+    }
+
+    /* Ajustar contenedores y tarjetas a blanco nítido */
+    div[data-testid="stVerticalBlock"] > div[data-testid="stContainer"] {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+
+    /* Textos y etiquetas legibles */
+    label, .stTextInput label, .stSelectbox label, .stDateInput label {
+        color: #1e293b !important;
+        font-weight: 600 !important;
     }
 
     .stButton>button {
@@ -92,16 +113,18 @@ if logo_b64:
     <div class="header-container">
         <img src="data:image/png;base64,{logo_b64}" class="header-logo" alt="Logo Instituto Inmaculada Concepción">
         <div>
-            <h2 style="color: #0b1c3c; margin: 0; font-weight: 700; font-size: 1.7rem; letter-spacing: -0.5px;">INSTITUTO INMACULADA CONCEPCIÓN</h2>
-            <p style="color: #64748b; font-weight: 500; font-size: 0.9rem; margin-top: 3px; letter-spacing: 0.5px; text-transform: uppercase;">Sistema Digital de Reserva de Espacios</p>
+            <h2 style="color: #0b1c3c; margin: 0; font-weight: 700; font-size: 1.6rem; letter-spacing: -0.5px;">INSTITUTO INMACULADA CONCEPCIÓN</h2>
+            <p style="color: #64748b; font-weight: 600; font-size: 0.85rem; margin-top: 4px; letter-spacing: 0.5px; text-transform: uppercase;">Sistema Digital de Reserva de Espacios</p>
         </div>
     </div>
     """
 else:
     header_html = """
-    <div style="text-align: center; padding-bottom: 15px; border-bottom: 2px solid #E6C653; margin-bottom: 25px;">
-        <h2 style="color: #0b1c3c; margin: 0; font-weight: 700; font-size: 1.7rem;">INSTITUTO INMACULADA CONCEPCIÓN</h2>
-        <p style="color: #64748b; font-weight: 500; font-size: 0.9rem; margin-top: 3px;">SISTEMA DIGITAL DE RESERVA DE ESPACIOS</p>
+    <div class="header-container" style="justify-content: center; text-align: center;">
+        <div>
+            <h2 style="color: #0b1c3c; margin: 0; font-weight: 700; font-size: 1.6rem;">INSTITUTO INMACULADA CONCEPCIÓN</h2>
+            <p style="color: #64748b; font-weight: 600; font-size: 0.85rem; margin-top: 4px; text-transform: uppercase;">SISTEMA DIGITAL DE RESERVA DE ESPACIOS</p>
+        </div>
     </div>
     """
 
@@ -116,7 +139,7 @@ tab_nueva, tab_planilla, tab_cancelar = st.tabs(["📝 Nueva Reserva", "📋 Pla
 with tab_nueva:  
     st.markdown("<h4 style='color: #0b1c3c; font-weight: 600; margin-bottom: 15px;'>Registrar Solicitud de Espacio</h4>", unsafe_allow_html=True)  
     
-    with st.container(border=True):  
+    with st.container():  
         nombre_profesor = st.text_input("Nombre y Apellido del Docente:")  
         
         col1, col2 = st.columns(2)  
@@ -224,7 +247,7 @@ with tab_cancelar:
             format_func=lambda x: next(opt[1] for opt in opciones_cancelar if opt[0] == x)  
         )  
         
-        with st.container(border=True):  
+        with st.container():  
             clave_ingresada = st.text_input("Ingresar Clave de Seguridad Institucional:", type="password")  
             
             if st.button("Proceder a la Eliminación", type="primary", use_container_width=True):  
