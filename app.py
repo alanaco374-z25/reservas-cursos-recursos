@@ -9,49 +9,11 @@ import base64
 DB_FILE = "reservas.json"  
 CLAVE_CANCELACION = "Inmaculada2026"   
 
-# Diccionario de recursos con sus respectivas descripciones e imágenes ilustrativas de alta calidad
-AULAS_RECURSOS = {
-    "Notebooks": {
-        "cat": "Equipamiento Informático",
-        "desc": "Carro móvil con notebooks para uso digital en aulas.",
-        "img": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80"
-    },
-    "Equipo de Sonido Grande": {
-        "cat": "Multimedia",
-        "desc": "Sistema de audio potenciado para actos y eventos masivos.",
-        "img": "https://images.unsplash.com/photo-1545128485-c400e7702796?auto=format&fit=crop&w=600&q=80"
-    },
-    "Equipo de Sonido Chico": {
-        "cat": "Multimedia",
-        "desc": "Bafle portátil con micrófono para clases y charlas.",
-        "img": "https://images.unsplash.com/photo-1520523839891-508fc8269d67?auto=format&fit=crop&w=600&q=80"
-    },
-    "Laboratorio": {
-        "cat": "Espacios Académicos",
-        "desc": "Espacio equipado para prácticas de ciencias y química.",
-        "img": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=600&q=80"
-    },
-    "Salón de Usos Múltiples (SUM)": {
-        "cat": "Espacios Académicos",
-        "desc": "Salón amplio para reuniones, educación física y eventos.",
-        "img": "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=600&q=80"
-    },
-    "Proyector Móvil A": {
-        "cat": "Multimedia",
-        "desc": "Cañón proyector multimedia de alta definición.",
-        "img": "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80"
-    },
-    "Biblioteca": {
-        "cat": "Espacios Académicos",
-        "desc": "Área silenciosa de lectura, consulta e investigación.",
-        "img": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=600&q=80"
-    },
-    "Tablets": {
-        "cat": "Equipamiento Informático",
-        "desc": "Set de tablets digitales educativas para estudiantes.",
-        "img": "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=600&q=80"
-    }
-}
+AULAS_RECURSOS = [  
+    "Notebooks", "Equipo de Sonido Grande", "Equipo de Sonido Chico",  
+    "Laboratorio", "Salón de Usos Múltiples (SUM)",   
+    "Proyector Móvil A", "Biblioteca", "Tablets"  
+]  
 
 TURNOS = [  
     # --- TURNO MAÑANA ---  
@@ -79,10 +41,16 @@ def guardar_reservas(reservas):
     with open(DB_FILE, "w", encoding="utf-8") as f:  
         json.dump(reservas, f, ensure_ascii=False, indent=4)  
 
+def get_base64_image(image_path):
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    return None
+
 # Configuración de página  
 st.set_page_config(page_title="Gestión de Espacios - IIC", page_icon="🏫", layout="centered")  
 
-# Estilos CSS personalizados para máxima elegancia, tipografías refinadas y tarjetas visuales
+# Estilos CSS personalizados para máxima elegancia y letras nítidas
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -91,94 +59,83 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
     
-    .main-header {
-        background: linear-gradient(135deg, #0b1c3c 0%, #172d55 100%);
-        padding: 30px 20px;
-        border-radius: 16px;
-        text-align: center;
-        border-bottom: 4px solid #E6C653;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        margin-bottom: 30px;
+    .header-container {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #E6C653;
+        margin-bottom: 25px;
     }
     
-    .resource-card {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 16px;
-        text-align: center;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-        transition: transform 0.2s ease;
+    .header-logo {
+        height: 85px;
+        width: auto;
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
     }
-    .resource-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 15px rgba(230, 198, 83, 0.15);
-        border-color: #E6C653;
+
+    .stButton>button {
+        font-weight: 600;
+        border-radius: 8px;
     }
 </style>
 """, unsafe_allow_html=True)
 
 reservas_actuales = cargar_reservas()  
 
-# --- ENCABEZADO INSTITUCIONAL CON LOGOTIPO ---
-col_logo, col_titulo = st.columns([1, 4])
-with col_logo:
-    if os.path.exists("LOGO.png"):
-        st.image("LOGO.png", width=95)
-    else:
-        st.write("🏫")
+# --- ENCABEZADO INSTITUCIONAL CON LOGO NÍTIDO ---
+logo_b64 = get_base64_image("LOGO.png")
 
-with col_titulo:
-    st.markdown("""
-        <div style='padding-top: 5px;'>
-            <h2 style='color: #0b1c3c; margin: 0px; font-weight: 700; font-size: 1.8rem; letter-spacing: -0.5px;'>INSTITUTO INMACULADA CONCEPCIÓN</h2>
-            <p style='color: #556987; font-weight: 500; font-size: 0.95rem; margin-top: 4px;'>Sistema Digital de Gestión y Reserva de Espacios Académicos</p>
+if logo_b64:
+    header_html = f"""
+    <div class="header-container">
+        <img src="data:image/png;base64,{logo_b64}" class="header-logo" alt="Logo Instituto Inmaculada Concepción">
+        <div>
+            <h2 style="color: #0b1c3c; margin: 0; font-weight: 700; font-size: 1.7rem; letter-spacing: -0.5px;">INSTITUTO INMACULADA CONCEPCIÓN</h2>
+            <p style="color: #64748b; font-weight: 500; font-size: 0.9rem; margin-top: 3px; letter-spacing: 0.5px; text-transform: uppercase;">Sistema Digital de Reserva de Espacios</p>
         </div>
-    """, unsafe_allow_html=True)
+    </div>
+    """
+else:
+    header_html = """
+    <div style="text-align: center; padding-bottom: 15px; border-bottom: 2px solid #E6C653; margin-bottom: 25px;">
+        <h2 style="color: #0b1c3c; margin: 0; font-weight: 700; font-size: 1.7rem;">INSTITUTO INMACULADA CONCEPCIÓN</h2>
+        <p style="color: #64748b; font-weight: 500; font-size: 0.9rem; margin-top: 3px;">SISTEMA DIGITAL DE RESERVA DE ESPACIOS</p>
+    </div>
+    """
 
-st.markdown("<hr style='margin-top: 20px; margin-bottom: 25px; border: 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+st.markdown(header_html, unsafe_allow_html=True)
 
 # --- NAVEGACIÓN POR PESTAÑAS ---  
-tab_nueva, tab_recursos, tab_planilla, tab_cancelar = st.tabs(["📝 Nueva Reserva", "🖼️ Catálogo Visual", "📊 Planilla y Disponibilidad", "❌ Cancelar Reserva"])  
+tab_nueva, tab_planilla, tab_cancelar = st.tabs(["📝 Nueva Reserva", "📋 Planilla y Disponibilidad", "❌ Cancelar Reserva"])  
 
 # ==========================================  
 # PESTAÑA 1: NUEVA RESERVA  
 # ==========================================  
 with tab_nueva:  
-    st.markdown("<h4 style='color: #0b1c3c; font-weight: 600; margin-bottom: 15px;'>Registrar Solicitud de Recurso</h4>", unsafe_allow_html=True)  
+    st.markdown("<h4 style='color: #0b1c3c; font-weight: 600; margin-bottom: 15px;'>Registrar Solicitud de Espacio</h4>", unsafe_allow_html=True)  
     
     with st.container(border=True):  
         nombre_profesor = st.text_input("Nombre y Apellido del Docente:")  
         
         col1, col2 = st.columns(2)  
         with col1:  
-            fecha_seleccionada = st.date_input("Fecha de reserva:", min_value=datetime.today())  
+            fecha_seleccionada = st.date_input("Fecha:", min_value=datetime.today())  
             fecha_str = fecha_seleccionada.strftime("%Y-%m-%d")  
         with col2:  
-            recurso_seleccionado = st.selectbox("Seleccione Aula o Recurso:", list(AULAS_RECURSOS.keys()))  
+            recurso_seleccionado = st.selectbox("Aula o Recurso requerido:", AULAS_RECURSOS)  
         
-        # Tarjeta previa del recurso seleccionado con su foto
-        info_recurso = AULAS_RECURSOS[recurso_seleccionado]
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; background: #f8fafc; padding: 12px; border-radius: 10px; border-left: 4px solid #0b1c3c; margin: 15px 0;">
-                <img src="{info_recurso['img']}" style="width: 70px; height: 50px; object-fit: cover; border-radius: 6px; margin-right: 15px;">
-                <div>
-                    <span style="font-size: 0.75rem; color: #E6C653; font-weight: 700; text-transform: uppercase;">{info_recurso['cat']}</span>
-                    <p style="margin: 0; font-size: 0.9rem; color: #334155; font-weight: 500;">{info_recurso['desc']}</p>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
         turno_seleccionado = st.selectbox("Bloque Horario Escolar:", TURNOS)  
         
         es_fin_de_semana = fecha_seleccionada.weekday() in [5, 6]  
         
         if es_fin_de_semana:  
-            st.error("🔒 El establecimiento permanece cerrado los fines de semana. Seleccione un día hábil (Lunes a Viernes).")  
+            st.error("🔒 El establecimiento se encuentra cerrado los fines de semana. Seleccione días de Lunes a Viernes.")  
         else:  
             if st.button("Confirmar y Bloquear Horario", type="primary", use_container_width=True):  
                 if not nombre_profesor.strip():  
-                    st.toast("⚠️ Complete su nombre y apellido para continuar.", icon="👤")  
+                    st.toast("⚠️ Complete su nombre para continuar.", icon="👤")  
                 else:  
                     conflicto = False  
                     for r in reservas_actuales:  
@@ -188,7 +145,7 @@ with tab_nueva:
                             break  
                     
                     if conflicto:  
-                        st.error(f"❌ **Conflicto de reserva:** El espacio ya se encuentra asignado al/la Prof. {profesor_ocupante} para este día y bloque horario.")  
+                        st.error(f"❌ **Conflicto de reserva:** El espacio ya fue asignado al/la Prof. {profesor_ocupante} para este día y horario.")  
                     else:  
                         nueva_reserva = {  
                             "profesor": nombre_profesor.strip().title(),  
@@ -199,40 +156,18 @@ with tab_nueva:
                         }  
                         reservas_actuales.append(nueva_reserva)  
                         guardar_reservas(reservas_actuales)  
-                        st.success(f"✅ ¡Reserva registrada con éxito! **{recurso_seleccionado}** asignado correctamente.")  
+                        st.success(f"✅ Guardado. **{recurso_seleccionado}** asignado con éxito.")  
                         st.balloons()  
                         st.rerun()  
 
 # ==========================================  
-# PESTAÑA 2: CATÁLOGO VISUAL DE RECURSOS  
-# ==========================================
-with tab_recursos:
-    st.markdown("<h4 style='color: #0b1c3c; font-weight: 600; margin-bottom: 15px;'>Galería de Espacios y Equipamiento Institucional</h4>", unsafe_allow_html=True)
-    st.write("Conozca en detalle los recursos disponibles para las actividades pedagógicas:")
-    
-    cols = st.columns(2)
-    idx = 0
-    for nombre, datos in AULAS_RECURSOS.items():
-        with cols[idx % 2]:
-            st.markdown(f"""
-                <div class="resource-card">
-                    <img src="{datos['img']}" style="width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">
-                    <h4 style="margin: 5px 0; color: #0b1c3c; font-size: 1.05rem;">{nombre}</h4>
-                    <p style="font-size: 0.75rem; color: #d97706; font-weight: 700; margin-bottom: 5px;">{datos['cat']}</p>
-                    <p style="font-size: 0.85_rem; color: #64748b; margin-bottom: 0;">{datos['desc']}</p>
-                </div>
-            """, unsafe_allow_html=True)
-            st.write("") # Espaciador
-        idx += 1
-
-# ==========================================  
-# PESTAÑA 3: PLANILLA Y DISPONIBILIDAD  
+# PESTAÑA 2: PLANILLA Y DISPONIBILIDAD  
 # ==========================================  
 with tab_planilla:  
-    st.markdown("<h4 style='color: #0b1c3c; font-weight: 600; margin-bottom: 15px;'>Planilla General de Ocupación</h4>", unsafe_allow_html=True)  
+    st.markdown("<h4 style='color: #0b1c3c; font-weight: 600; margin-bottom: 15px;'>Planilla de Ocupación General</h4>", unsafe_allow_html=True)  
     
     if not reservas_actuales:  
-        st.info("No se registran turnos ocupados en el sistema actualmente.")  
+        st.info("No se registran turnos ocupados en el sistema actual.")  
     else:  
         df = pd.DataFrame(reservas_actuales)  
         df_visualizacion = df.rename(columns={  
@@ -245,8 +180,8 @@ with tab_planilla:
         columnas_ordenadas = ["Fecha", "Espacio / Recurso", "Bloque Horario", "Docente a Cargo", "Alta en Sistema"]  
         df_visualizacion = df_visualizacion[columnas_ordenadas]  
         
-        with st.expander("🔍 Herramientas de filtrado y búsqueda rápida"):  
-            busqueda = st.text_input("Filtrar por docente o recurso específico:")  
+        with st.expander("🔍 Herramientas de filtrado y búsqueda"):  
+            busqueda = st.text_input("Filtrar por apellido del docente o aula específica:")  
             if busqueda:  
                 df_visualizacion = df_visualizacion[  
                     df_visualizacion.astype(str).apply(lambda x: x.str.contains(busqueda, case=False)).any(axis=1)  
@@ -260,7 +195,7 @@ with tab_planilla:
         
         csv = df_visualizacion.to_csv(index=False).encode('utf-8')  
         st.download_button(  
-            label="📥 Descargar Reporte Escolar (CSV)",  
+            label="📥 Descargar Reporte Completo (CSV)",  
             data=csv,  
             file_name=f"reservas_inmaculada_{datetime.today().strftime('%Y%m%d')}.csv",  
             mime="text/csv",  
@@ -268,7 +203,7 @@ with tab_planilla:
         )  
 
 # ==========================================  
-# PESTAÑA 4: CANCELAR RESERVA  
+# PESTAÑA 3: CANCELAR RESERVA  
 # ==========================================  
 with tab_cancelar:  
     st.markdown("<h4 style='color: #0b1c3c; font-weight: 600; margin-bottom: 15px;'>Anulación de Turnos Asignados</h4>", unsafe_allow_html=True)  
@@ -276,7 +211,7 @@ with tab_cancelar:
     if not reservas_actuales:  
         st.info("No hay reservas registradas en el sistema para poder cancelar.")  
     else:  
-        st.write("Seleccione el turno que desea eliminar de la base de datos:")  
+        st.write("Seleccioná la reserva que deseas eliminar del sistema:")  
         
         opciones_cancelar = []  
         for i, r in enumerate(reservas_actuales):  
