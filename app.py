@@ -4,10 +4,16 @@ import os
 from datetime import datetime  
 import pandas as pd  
 import base64
+import requests
 
-# Configuración y almacenamiento de datos  
+# Carga de variables de entorno seguras (Render / .env local)
+from dotenv import load_dotenv
+load_dotenv()
+
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION")
+
 DB_FILE = "reservas.json"  
-CLAVE_CANCELACION = "Inmaculada2026"   
 
 AULAS_RECURSOS = [  
     "Notebooks", "Equipo de Sonido Grande", "Equipo de Sonido Chico",  
@@ -47,15 +53,54 @@ def get_base64_image(image_path):
             return base64.b64encode(img_file.read()).decode()
     return None
 
+def enviar_correo_brevo(destinatario, docente, recurso, fecha, turno):
+    """Envía el correo de confirmación utilizando la API HTTP de Brevo (segura con BREVO_API_KEY)"""
+    if not destinatario or "@" not in destinatario or not BREVO_API_KEY:
+        return
+    
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json"
+    }
+    
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; color: #1e293b; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #0b1c3c; margin-top: 0;">Instituto Inmaculada Concepción</h2>
+        <h3 style="color: #d97706;">Confirmación de Reserva de Recurso</h3>
+        <p>Estimado/a <strong>{docente}</strong>,</p>
+        <p>Su solicitud ha sido registrada con éxito en el sistema digital institucional.</p>
+        <ul style="line-height: 1.6;">
+            <li><strong>Recurso / Espacio:</strong> {recurso}</li>
+            <li><strong>Fecha:</strong> {fecha}</li>
+            <li><strong>Bloque Horario:</strong> {turno}</li>
+            <li><strong>Estado:</strong> SOLICITADO</li>
+        </ul>
+        <p style="font-size: 0.85rem; color: #64748b; margin-top: 20px;">Este es un mensaje automático del sistema de reservas escolares.</p>
+    </div>
+    """
+    
+    payload = {
+        "sender": {"name": "Sistema de Reservas IIC", "email": "alanaco374@gmail.com"},
+        "to": [{"email": destinatario, "name": docente}],
+        "subject": f"Reserva Confirmada: {recurso} ({fecha})",
+        "htmlContent": html_content
+    }
+    
+    try:
+        requests.post(url, json=payload, headers=headers, timeout=10)
+    except Exception as e:
+        print(f"Error al conectar con la API de Brevo: {e}")
+
 # Configuración de página  
 st.set_page_config(page_title="Gestión de Espacios - IIC", page_icon="🏫", layout="centered")  
 
-# Estilos CSS para forzar fondo claro, tipografía elegante y máxima legibilidad
+# Estilos CSS avanzados para fondo claro, tipografía nítida y pestañas oscuras legibles
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
     
-    /* Forzar fondo blanco y color de texto general oscuro en toda la app */
     .stApp {
         background-color: #f8fafc !important;
         color: #1e293b !important;
@@ -81,7 +126,16 @@ st.markdown("""
         image-rendering: crisp-edges;
     }
 
-    /* Ajustar contenedores y tarjetas a blanco nítido */
+    /* Forzar que los textos de las pestañas (tabs) sean oscuros y totalmente legibles */
+    .stTabs [data-baseweb="tab"] {
+        color: #0b1c3c !important;
+        font-weight: 700 !important;
+    }
+    
+    .stTabs [data-baseweb="tab"] p {
+        color: #0b1c3c !important;
+    }
+
     div[data-testid="stVerticalBlock"] > div[data-testid="stContainer"] {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
@@ -90,7 +144,6 @@ st.markdown("""
         box-shadow: 0 2px 6px rgba(0,0,0,0.02);
     }
 
-    /* Textos y etiquetas legibles */
     label, .stTextInput label, .stSelectbox label, .stDateInput label {
         color: #1e293b !important;
         font-weight: 600 !important;
@@ -141,6 +194,7 @@ with tab_nueva:
     
     with st.container():  
         nombre_profesor = st.text_input("Nombre y Apellido del Docente:")  
+        email_docente = st.text_input("Correo electrónico de notificación (Docente / Tutor):")
         
         col1, col2 = st.columns(2)  
         with col1:  
@@ -172,6 +226,7 @@ with tab_nueva:
                     else:  
                         nueva_reserva = {  
                             "profesor": nombre_profesor.strip().title(),  
+                            "email": email_docente.strip(),
                             "fecha": fecha_str,  
                             "recurso": recurso_seleccionado,  
                             "turno": turno_seleccionado,  
@@ -179,7 +234,12 @@ with tab_nueva:
                         }  
                         reservas_actuales.append(nueva_reserva)  
                         guardar_reservas(reservas_actuales)  
-                        st.success(f"✅ Guardado. **{recurso_seleccionado}** asignado con éxito.")  
+                        
+                        # Enviar notificación vía API Brevo
+                        if email_docente.strip():
+                            enviar_correo_brevo(email_docente.strip(), nombre_profesor, recurso_seleccionado, fecha_str, turno_seleccionado)
+
+                        st.success(f"✅ Guardado. **{recurso_seleccionado}** asignado con éxito y notificación enviada.")  
                         st.balloons()  
                         st.rerun()  
 
@@ -193,14 +253,18 @@ with tab_planilla:
         st.info("No se registran turnos ocupados en el sistema actual.")  
     else:  
         df = pd.DataFrame(reservas_actuales)  
-        df_visualizacion = df.rename(columns={  
+        columnas_renombrar = {  
             "fecha": "Fecha", "recurso": "Espacio / Recurso",  
             "turno": "Bloque Horario", "profesor": "Docente a Cargo",  
             "registro": "Alta en Sistema"  
-        })  
+        }
+        if "email" in df.columns:
+            columnas_renombrar["email"] = "Correo Notificación"
+
+        df_visualizacion = df.rename(columns=columnas_renombrar)  
         
         df_visualizacion = df_visualizacion.sort_values(by="Fecha")  
-        columnas_ordenadas = ["Fecha", "Espacio / Recurso", "Bloque Horario", "Docente a Cargo", "Alta en Sistema"]  
+        columnas_ordenadas = [c for c in ["Fecha", "Espacio / Recurso", "Bloque Horario", "Docente a Cargo", "Correo Notificación", "Alta en Sistema"] if c in df_visualizacion.columns]  
         df_visualizacion = df_visualizacion[columnas_ordenadas]  
         
         with st.expander("🔍 Herramientas de filtrado y búsqueda"):  
