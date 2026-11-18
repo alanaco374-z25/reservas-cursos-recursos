@@ -48,7 +48,7 @@ def obtener_conexion():
         return None
 
 def inicializar_tabla():
-    """Asegura que la tabla reservas exista en Postgres"""
+    """Asegura que la tabla reservas exista en Postgres con campos en formato TEXT para evitar conflictos"""
     conn = obtener_conexion()
     if conn:
         try:
@@ -101,10 +101,10 @@ def guardar_reserva_db(nueva_reserva):
             """, (
                 nueva_reserva["profesor"],
                 nueva_reserva["email"],
-                nueva_reserva["fecha"],
+                str(nueva_reserva["fecha"]),
                 nueva_reserva["recurso"],
                 nueva_reserva["turno"],
-                nueva_reserva["registro"]
+                str(nueva_reserva["registro"])
             ))
             conn.commit()
             return True
@@ -398,17 +398,17 @@ with tab_cancelar:
         )  
         
         with st.container():  
-            clave_ingresada = st.text_input("Ingresar Clave de Seguridad Institucional:", type="password")  
+            clave_input = st.text_input("Ingresar Clave de Seguridad Institucional:", type="password")  
             
             if st.button("Proceder a la Eliminación", type="primary", use_container_width=True):  
-                if clave_ingresada == CLAVE_CANCELACION:  
+                if clave_input == CLAVE_CANCELACION:  
                     exito = eliminar_reserva_db(reserva_a_eliminar_id)
                     
                     if exito:
                         st.toast("Se eliminó con éxito el turno.", icon="🗑️")  
                         st.success("✅ La reserva ha sido removida de la base de datos correctamente.")  
                         st.rerun()  
-                elif not clave_ingresada:  
+                elif not clave_input:  
                     st.toast("⚠️ Por favor, introduzca la clave de seguridad.", icon="🔑")  
                 else:  
                     st.error("🔒 Clave incorrecta. No tiene los permisos requeridos para modificar la agenda.")
