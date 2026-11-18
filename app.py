@@ -1,5 +1,4 @@
 import streamlit as st  
-import json  
 import os  
 from datetime import datetime  
 import pandas as pd  
@@ -10,13 +9,12 @@ import requests
 from dotenv import load_dotenv
 load_dotenv()
 
+SUPABASE_URL = os.getenv("SUPABASE_URL")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION")
 
-DB_FILE = "reservas.json"  
-
 AULAS_RECURSOS = [  
-   "Equipo de Sonido Grande", "Equipo de Sonido Chico",  
+    "Equipo de Sonido Grande", "Equipo de Sonido Chico",  
     "Laboratorio", "Salón de Usos Múltiples (SUM)",   
     "Proyector Móvil A", "Proyector Móvil B", "Biblioteca", "Tablets"  
 ]  
@@ -37,15 +35,56 @@ TURNOS = [
 ]  
 
 def cargar_reservas():  
-    if os.path.exists(DB_FILE):  
-        with open(DB_FILE, "r", encoding="utf-8") as f:  
-            try: return json.load(f)  
-            except json.JSONDecodeError: return []  
-    return []  
+    """Carga las reservas directamente desde la tabla 'reservas' en Supabase vía REST API"""
+    if not SUPABASE_URL:
+        return []
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/reservas?select=*"
+        headers = {
+            "apikey": SUPABASE_URL,
+            "Authorization": f"Bearer {SUPABASE_URL}"
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except Exception as e:
+        st.error(f"Error al conectar con Supabase: {e}")
+        return []
 
-def guardar_reservas(reservas):  
-    with open(DB_FILE, "w", encoding="utf-8") as f:  
-        json.dump(reservas, f, ensure_ascii=False, indent=4)  
+def guardar_reserva_supabase(nueva_reserva):  
+    """Inserta una nueva reserva en Supabase mediante petición HTTP"""
+    if not SUPABASE_URL:
+        return False
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/reservas"
+        headers = {
+            "apikey": SUPABASE_URL,
+            "Authorization": f"Bearer {SUPABASE_URL}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+        }
+        response = requests.post(url, json=nueva_reserva, headers=headers, timeout=10)
+        return response.status_code in [200, 201]
+    except Exception as e:
+        st.error(f"Error al guardar en Supabase: {e}")
+        return False
+
+def eliminar_reserva_supabase(reserva_id):
+    """Elimina una reserva de Supabase usando su ID único"""
+    if not SUPABASE_URL:
+        return False
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/reservas?id=eq.{reserva_id}"
+        headers = {
+            "apikey": SUPABASE_URL,
+            "Authorization": f"Bearer {SUPABASE_URL}",
+        }
+        response = requests.delete(url, headers=headers, timeout=10)
+        return response.status_code in [200, 204]
+    except Exception as e:
+        st.error(f"Error al eliminar en Supabase: {e}")
+        return False
 
 def get_base64_image(image_path):
     if os.path.exists(image_path):
@@ -216,9 +255,9 @@ with tab_nueva:
                 else:  
                     conflicto = False  
                     for r in reservas_actuales:  
-                        if (r["fecha"] == fecha_str and r["recurso"] == recurso_seleccionado and r["turno"] == turno_seleccionado):  
+                        if (r.get("fecha") == fecha_str and r.get("recurso") == recurso_seleccionado and r.get("turno") == turno_seleccionado):  
                             conflicto = True  
-                            profesor_ocupante = r["profesor"]  
+                            profesor_ocupante = r.get("profesor")  
                             break  
                     
                     if conflicto:  
@@ -232,16 +271,17 @@ with tab_nueva:
                             "turno": turno_seleccionado,  
                             "registro": datetime.now().strftime("%d/%m/%Y %H:%M")  
                         }  
-                        reservas_actuales.append(nueva_reserva)  
-                        guardar_reservas(reservas_actuales)  
                         
-                        # Enviar notificación vía API Brevo
-                        if email_docente.strip():
-                            enviar_correo_brevo(email_docente.strip(), nombre_profesor, recurso_seleccionado, fecha_str, turno_seleccionado)
+                        exito = guardar_reserva_supabase(nueva_reserva)
+                        
+                        if exito:
+                            # Enviar notificación vía API Brevo
+                            if email_docente.strip():
+                                enviar_correo_brevo(email_docente.strip(), nombre_profesor, recurso_seleccionado, fecha_str, turno_seleccionado)
 
-                        st.success(f"✅ Guardado. **{recurso_seleccionado}** asignado con éxito y notificación enviada.")  
-                        st.balloons()  
-                        st.rerun()  
+                            st.success(f"✅ Guardado en Supabase. **{recurso_seleccionado}** asignado con éxito y notificación enviada.")  
+                            st.balloons()  
+                            st.rerun()  
 
 # ==========================================  
 # PESTAÑA 2: PLANILLA Y DISPONIBILIDAD  
@@ -263,6 +303,9 @@ with tab_planilla:
 
         df_visualizacion = df.rename(columns=columnas_renombrar)  
         
+        if "id" in df_visualizacion.columns:
+            df_visualizacion = df_visualizacion.drop(columns=["id"])
+
         df_visualizacion = df_visualizacion.sort_values(by="Fecha")  
         columnas_ordenadas = [c for c in ["Fecha", "Espacio / Recurso", "Bloque Horario", "Docente a Cargo", "Correo Notificación", "Alta en Sistema"] if c in df_visualizacion.columns]  
         df_visualizacion = df_visualizacion[columnas_ordenadas]  
@@ -301,11 +344,12 @@ with tab_cancelar:
         st.write("Seleccioná la reserva que deseas eliminar del sistema:")  
         
         opciones_cancelar = []  
-        for i, r in enumerate(reservas_actuales):  
-            texto_reserva = f"{r['fecha']} | {r['recurso']} | {r['turno']} (Prof. {r['profesor']})"  
-            opciones_cancelar.append((i, texto_reserva))  
+        for r in reservas_actuales:  
+            res_id = r.get("id")
+            texto_reserva = f"{r.get('fecha')} | {r.get('recurso')} | {r.get('turno')} (Prof. {r.get('profesor')})"  
+            opciones_cancelar.append((res_id, texto_reserva))  
         
-        reserva_a_eliminar_idx = st.selectbox(  
+        reserva_a_eliminar_id = st.selectbox(  
             "Seleccionar turno a dar de baja:",  
             options=[opt[0] for opt in opciones_cancelar],  
             format_func=lambda x: next(opt[1] for opt in opciones_cancelar if opt[0] == x)  
@@ -316,12 +360,12 @@ with tab_cancelar:
             
             if st.button("Proceder a la Eliminación", type="primary", use_container_width=True):  
                 if clave_ingresada == CLAVE_CANCELACION:  
-                    eliminada = reservas_actuales.pop(reserva_a_eliminar_idx)  
-                    guardar_reservas(reservas_actuales)  
+                    exito = eliminar_reserva_supabase(reserva_a_eliminar_id)
                     
-                    st.toast(f"Se eliminó con éxito el turno de {eliminada['recurso']}.", icon="🗑️")  
-                    st.success(f"✅ La reserva de **{eliminada['recurso']}** para el día **{eliminada['fecha']}** ha sido removida del sistema.")  
-                    st.rerun()  
+                    if exito:
+                        st.toast("Se eliminó con éxito el turno.", icon="🗑️")  
+                        st.success("✅ La reserva ha sido removida de Supabase correctamente.")  
+                        st.rerun()  
                 elif not clave_ingresada:  
                     st.toast("⚠️ Por favor, introduzca la clave de seguridad.", icon="🔑")  
                 else:  
