@@ -13,7 +13,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
-CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION", "Inmaculada2026")
+CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION")
 
 AULAS_RECURSOS = [  
     "Equipo de Sonido Grande", "Equipo de Sonido Chico",  
