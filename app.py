@@ -4,14 +4,16 @@ from datetime import datetime
 import pandas as pd  
 import base64
 import requests
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 # Carga de variables de entorno seguras (Render / .env local)
 from dotenv import load_dotenv
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
-CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION")
+CLAVE_CANCELACION = os.getenv("CLAVE_CANCELACION", "Inmaculada2026")
 
 AULAS_RECURSOS = [  
     "Equipo de Sonido Grande", "Equipo de Sonido Chico",  
@@ -34,57 +36,99 @@ TURNOS = [
     "06:00 PM - 06:40 PM (Módulo 9 Final - Tarde)"  
 ]  
 
+def obtener_conexion():
+    """Crea una conexión directa a PostgreSQL usando DATABASE_URL"""
+    if not DATABASE_URL:
+        return None
+    try:
+        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+        return conn
+    except Exception as e:
+        print(f"Error conectando a la base de datos: {e}")
+        return None
+
+def inicializar_tabla():
+    """Asegura que la tabla reservas exista en Postgres"""
+    conn = obtener_conexion()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS reservas (
+                        id SERIAL PRIMARY KEY,
+                        profesor TEXT,
+                        email TEXT,
+                        fecha TEXT,
+                        recurso TEXT,
+                        turno TEXT,
+                        registro TEXT
+                    );
+                """)
+                conn.commit()
+        except Exception as e:
+            print(f"Error al inicializar la tabla: {e}")
+        finally:
+            conn.close()
+
+# Inicializar tabla al arrancar
+inicializar_tabla()
+
 def cargar_reservas():  
-    """Carga las reservas directamente desde la tabla 'reservas' en Supabase vía REST API"""
-    if not SUPABASE_URL:
+    """Carga todas las reservas desde PostgreSQL"""
+    conn = obtener_conexion()
+    if not conn:
         return []
     try:
-        url = f"{SUPABASE_URL}/rest/v1/reservas?select=*"
-        headers = {
-            "apikey": SUPABASE_URL,
-            "Authorization": f"Bearer {SUPABASE_URL}"
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            return response.json()
-        return []
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("SELECT * FROM reservas ORDER BY fecha ASC;")
+            return cursor.fetchall()
     except Exception as e:
-        st.error(f"Error al conectar con Supabase: {e}")
+        st.error(f"Error al leer la base de datos: {e}")
         return []
+    finally:
+        conn.close()
 
-def guardar_reserva_supabase(nueva_reserva):  
-    """Inserta una nueva reserva en Supabase mediante petición HTTP"""
-    if not SUPABASE_URL:
+def guardar_reserva_db(nueva_reserva):  
+    """Inserta una nueva reserva en PostgreSQL"""
+    conn = obtener_conexion()
+    if not conn:
         return False
     try:
-        url = f"{SUPABASE_URL}/rest/v1/reservas"
-        headers = {
-            "apikey": SUPABASE_URL,
-            "Authorization": f"Bearer {SUPABASE_URL}",
-            "Content-Type": "application/json",
-            "Prefer": "return=minimal"
-        }
-        response = requests.post(url, json=nueva_reserva, headers=headers, timeout=10)
-        return response.status_code in [200, 201]
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO reservas (profesor, email, fecha, recurso, turno, registro)
+                VALUES (%s, %s, %s, %s, %s, %s);
+            """, (
+                nueva_reserva["profesor"],
+                nueva_reserva["email"],
+                nueva_reserva["fecha"],
+                nueva_reserva["recurso"],
+                nueva_reserva["turno"],
+                nueva_reserva["registro"]
+            ))
+            conn.commit()
+            return True
     except Exception as e:
-        st.error(f"Error al guardar en Supabase: {e}")
+        st.error(f"Error al guardar en la base de datos: {e}")
         return False
+    finally:
+        conn.close()
 
-def eliminar_reserva_supabase(reserva_id):
-    """Elimina una reserva de Supabase usando su ID único"""
-    if not SUPABASE_URL:
+def eliminar_reserva_db(reserva_id):
+    """Elimina una reserva por su ID único"""
+    conn = obtener_conexion()
+    if not conn:
         return False
     try:
-        url = f"{SUPABASE_URL}/rest/v1/reservas?id=eq.{reserva_id}"
-        headers = {
-            "apikey": SUPABASE_URL,
-            "Authorization": f"Bearer {SUPABASE_URL}",
-        }
-        response = requests.delete(url, headers=headers, timeout=10)
-        return response.status_code in [200, 204]
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM reservas WHERE id = %s;", (reserva_id,))
+            conn.commit()
+            return True
     except Exception as e:
-        st.error(f"Error al eliminar en Supabase: {e}")
+        st.error(f"Error al eliminar de la base de datos: {e}")
         return False
+    finally:
+        conn.close()
 
 def get_base64_image(image_path):
     if os.path.exists(image_path):
@@ -93,7 +137,7 @@ def get_base64_image(image_path):
     return None
 
 def enviar_correo_brevo(destinatario, docente, recurso, fecha, turno):
-    """Envía el correo de confirmación utilizando la API HTTP de Brevo (segura con BREVO_API_KEY)"""
+    """Envía el correo de confirmación utilizando la API HTTP de Brevo"""
     if not destinatario or "@" not in destinatario or not BREVO_API_KEY:
         return
     
@@ -165,7 +209,6 @@ st.markdown("""
         image-rendering: crisp-edges;
     }
 
-    /* Forzar que los textos de las pestañas (tabs) sean oscuros y totalmente legibles */
     .stTabs [data-baseweb="tab"] {
         color: #0b1c3c !important;
         font-weight: 700 !important;
@@ -272,14 +315,13 @@ with tab_nueva:
                             "registro": datetime.now().strftime("%d/%m/%Y %H:%M")  
                         }  
                         
-                        exito = guardar_reserva_supabase(nueva_reserva)
+                        exito = guardar_reserva_db(nueva_reserva)
                         
                         if exito:
-                            # Enviar notificación vía API Brevo
                             if email_docente.strip():
                                 enviar_correo_brevo(email_docente.strip(), nombre_profesor, recurso_seleccionado, fecha_str, turno_seleccionado)
 
-                            st.success(f"✅ Guardado en Supabase. **{recurso_seleccionado}** asignado con éxito y notificación enviada.")  
+                            st.success(f"✅ Guardado en la base de datos. **{recurso_seleccionado}** asignado con éxito y notificación enviada.")  
                             st.balloons()  
                             st.rerun()  
 
@@ -360,11 +402,11 @@ with tab_cancelar:
             
             if st.button("Proceder a la Eliminación", type="primary", use_container_width=True):  
                 if clave_ingresada == CLAVE_CANCELACION:  
-                    exito = eliminar_reserva_supabase(reserva_a_eliminar_id)
+                    exito = eliminar_reserva_db(reserva_a_eliminar_id)
                     
                     if exito:
                         st.toast("Se eliminó con éxito el turno.", icon="🗑️")  
-                        st.success("✅ La reserva ha sido removida de Supabase correctamente.")  
+                        st.success("✅ La reserva ha sido removida de la base de datos correctamente.")  
                         st.rerun()  
                 elif not clave_ingresada:  
                     st.toast("⚠️ Por favor, introduzca la clave de seguridad.", icon="🔑")  
